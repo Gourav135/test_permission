@@ -1,0 +1,40 @@
+name: Enforce Code Owner Reviews
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release/dev
+  push:
+    branches:
+      - main
+      - release/dev
+
+jobs:
+  require-review:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the code
+      uses: actions/checkout@v2
+
+    - name: Verify Code Owner Approval
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const requiredReviews = ['Gourav9899'];  // Replace with actual GitHub usernames of code owners
+          const reviews = await github.pulls.listReviews({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.payload.pull_request.number,
+          });
+
+          const approvedBy = new Set(reviews.data
+            .filter(review => review.state === 'APPROVED')
+            .map(review => review.user.login));
+
+          const missingApprovals = requiredReviews.filter(reviewer => !approvedBy.has(reviewer));
+
+          if (missingApprovals.length > 0) {
+            core.setFailed(`The following code owners have not approved this PR: ${missingApprovals.join(', ')}`);
+          }
